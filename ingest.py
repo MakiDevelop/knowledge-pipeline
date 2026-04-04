@@ -90,6 +90,8 @@ def main():
     )
     parser.add_argument("inputs", nargs="*", help="URLs or path to a file containing URLs")
     parser.add_argument("--stdin", action="store_true", help="Read URLs from stdin")
+    parser.add_argument("--obsidian", type=str, help="Path to Obsidian vault")
+    parser.add_argument("--after", type=str, help="Date filter (YYYY-MM-DD)")
     args = parser.parse_args()
 
     urls = []
@@ -105,6 +107,31 @@ def main():
                 urls.append(normalize_url(inp))
             else:
                 print(f"Warning: skipping unrecognized input: {inp}", file=sys.stderr)
+    elif args.obsidian:
+        vault_path = Path(args.obsidian)
+        if not vault_path.is_dir():
+            print(f"Error: {args.obsidian} is not a directory", file=sys.stderr)
+            sys.exit(1)
+
+        after_date = None
+        if args.after:
+            try:
+                after_date = datetime.strptime(args.after, "%Y-%m-%d")
+            except ValueError:
+                print("Error: Invalid date format. Use YYYY-MM-DD.", file=sys.stderr)
+                sys.exit(1)
+
+        for md_file in vault_path.rglob("*.md"):
+            try:
+                file_content = md_file.read_text()
+                file_mtime = datetime.fromtimestamp(md_file.stat().st_mtime)
+
+                if after_date and file_mtime < after_date:
+                    continue
+
+                urls.extend(extract_urls(file_content))
+            except Exception as e:
+                print(f"Error processing file {md_file}: {e}", file=sys.stderr)
     else:
         parser.print_help()
         sys.exit(1)
@@ -113,7 +140,7 @@ def main():
         print("No URLs found.", file=sys.stderr)
         sys.exit(1)
 
-    stats = ingest_urls(urls)
+    stats = ingest_urls(urls, source="obsidian")
     print(f"Ingested: {stats['added']} new, {stats['skipped']} duplicates (of {stats['total']} URLs)")
 
 
