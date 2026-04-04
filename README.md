@@ -2,6 +2,8 @@
 
 **Auto-triage your knowledge. Score, route, search — no frameworks.**
 
+[繁體中文 README](README.zh-TW.md)
+
 Most bookmark managers are graveyards. You save 500 URLs and never look at them again.
 
 `knowledge-pipeline` is different. It's a **6-layer deterministic pipeline** that automatically:
