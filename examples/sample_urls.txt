@@ -1,0 +1,30 @@
+# Sample URLs for testing knowledge-pipeline
+# These are real, publicly accessible articles covering various topics.
+# Run: python3 ingest.py examples/sample_urls.txt
+
+# AI / LLM
+https://simonwillison.net/2024/Apr/8/ai-assisted-search/
+https://www.anthropic.com/research/building-effective-agents
+https://lilianweng.github.io/posts/2023-06-23-agent/
+https://arxiv.org/abs/2305.10601
+
+# Software Engineering
+https://martinfowler.com/articles/microservices.html
+https://www.joelonsoftware.com/2000/08/09/the-joel-test-12-steps-to-better-code/
+https://blog.pragmaticengineer.com/the-developer-culture-test/
+
+# Knowledge Management / PKM
+https://fortelabs.com/blog/para/
+https://zettelkasten.de/introduction/
+
+# Open Source / Developer Tools
+https://github.com/readme/guides/first-open-source-contribution
+https://opensource.guide/how-to-contribute/
+
+# Data / Search
+https://www.algolia.com/blog/ai/what-is-hybrid-search/
+https://huggingface.co/BAAI/bge-m3
+
+# Startup / Product
+https://paulgraham.com/startupideas.html
+https://basecamp.com/gettingreal
