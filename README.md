@@ -1,6 +1,12 @@
 # knowledge-pipeline
 
+> Stop feeding your RAG garbage.
+
 ![CI](https://github.com/MakiDevelop/knowledge-pipeline/actions/workflows/ci.yml/badge.svg)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
+![feature image](examples/feature-image.png)
 
 **Auto-triage your knowledge. Score, route, search — no frameworks.**
 
