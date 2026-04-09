@@ -1,5 +1,7 @@
 # knowledge-pipeline
 
+![CI](https://github.com/MakiDevelop/knowledge-pipeline/actions/workflows/ci.yml/badge.svg)
+
 **Auto-triage your knowledge. Score, route, search — no frameworks.**
 
 [繁體中文 README](README.zh-TW.md)
