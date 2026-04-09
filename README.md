@@ -49,7 +49,7 @@ This pipeline gives your agents a **shared, persistent, scored knowledge layer**
 ### Install
 
 ```bash
-git clone https://github.com/makifordevelop/knowledge-pipeline.git
+git clone https://github.com/MakiDevelop/knowledge-pipeline.git
 cd knowledge-pipeline
 pip install -r requirements.txt
 
