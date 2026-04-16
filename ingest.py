@@ -34,6 +34,8 @@ URL_RE = re.compile(r"https?://[^\s<>\"']+")
 def normalize_url(raw_url: str) -> str:
     """Strip tracking params and fragments."""
     parsed = urlparse(raw_url.strip().rstrip("/"))
+    # RFC 3986 §3.2.2: hostname is case-insensitive
+    parsed = parsed._replace(netloc=parsed.netloc.lower())
     params = parse_qs(parsed.query, keep_blank_values=False)
     cleaned = {k: v for k, v in params.items() if k.lower() not in TRACKING_PARAMS}
     new_query = urlencode(cleaned, doseq=True) if cleaned else ""
@@ -61,21 +63,22 @@ def ingest_urls(urls: list[str], source: str = "cli") -> dict:
     added = 0
     skipped = 0
 
-    for url in urls:
-        domain = urlparse(url).netloc
-        url_hash = hashlib.sha256(url.encode()).hexdigest()
-        try:
-            conn.execute(
-                "INSERT INTO items (url, domain, source, added_at, url_hash) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (url, domain, source, now, url_hash),
-            )
-            added += 1
-        except sqlite3.IntegrityError:
-            skipped += 1
-
-    conn.commit()
-    conn.close()
+    try:
+        for url in urls:
+            domain = urlparse(url).netloc
+            url_hash = hashlib.sha256(url.encode()).hexdigest()
+            try:
+                conn.execute(
+                    "INSERT INTO items (url, domain, source, added_at, url_hash) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (url, domain, source, now, url_hash),
+                )
+                added += 1
+            except sqlite3.IntegrityError:
+                skipped += 1
+        conn.commit()
+    finally:
+        conn.close()
     return {"added": added, "skipped": skipped, "total": len(urls)}
 
 

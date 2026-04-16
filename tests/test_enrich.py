@@ -34,6 +34,15 @@ class TestIsPrivateUrl:
     def test_allows_public_ip(self):
         assert _is_private_url("http://8.8.8.8/dns") is False
 
+    def test_blocks_zero_address(self):
+        assert _is_private_url("http://0.0.0.0/") is True
+
+    def test_blocks_ipv6_loopback(self):
+        assert _is_private_url("http://[::1]/") is True
+
+    def test_blocks_unresolvable_host(self):
+        assert _is_private_url("http://this-domain-does-not-exist-xyzzy.invalid/") is True
+
 
 class TestExtractTextFromHtml:
     def test_basic_extraction(self):
