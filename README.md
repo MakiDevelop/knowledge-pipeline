@@ -179,6 +179,17 @@ for r in results["results"]:
 | LLM | Any OpenAI-compatible | Ollama (local, free), OpenAI, Anthropic... |
 | Web server | stdlib HTTPServer | Zero dependencies for serving |
 
+## Security
+
+`enrich.py` fetches arbitrary user-supplied URLs — SSRF protection is critical:
+
+- **DNS resolution before fetch** — all resolved IPs are checked against private/reserved ranges, preventing DNS rebinding attacks
+- **Redirect validation** — every HTTP redirect target is re-validated through the same SSRF blocklist
+- **Coverage** — blocks RFC 1918, loopback, link-local, reserved ranges, AWS/GCP metadata endpoints, and unresolvable hostnames
+- **Parameterized SQL** — all user-influenced values use `?` placeholders, never f-string interpolation
+
+Found a vulnerability? Please [open an issue](https://github.com/MakiDevelop/knowledge-pipeline/issues) or email the maintainer directly.
+
 ## Requirements
 
 ```
