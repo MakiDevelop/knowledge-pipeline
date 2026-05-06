@@ -179,6 +179,17 @@ for r in results["results"]:
 | LLM | 任何 OpenAI-compatible | Ollama(本地免費)、OpenAI、Anthropic... |
 | Web server | stdlib HTTPServer | 零依賴 |
 
+## 安全性
+
+`enrich.py` 會抓取使用者提供的任意 URL — SSRF 防護至關重要：
+
+- **先 DNS 解析再抓取** — 所有解析出的 IP 都會檢查是否為私有/保留位址，防止 DNS rebinding 攻擊
+- **Redirect 驗證** — 每一個 HTTP 重導向目標都會重新通過 SSRF 檢查
+- **覆蓋範圍** — 攔截 RFC 1918、loopback、link-local、保留範圍、AWS/GCP metadata endpoint、無法解析的主機名稱
+- **參數化 SQL** — 所有受使用者影響的值都使用 `?` 佔位符，不使用 f-string
+
+發現漏洞？請[開 issue](https://github.com/MakiDevelop/knowledge-pipeline/issues) 或直接聯繫維護者。
+
 ## 需求
 
 ```

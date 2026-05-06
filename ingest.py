@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from config import DB_PATH, get_db_connection, init_db
+from config import get_db_connection, init_db
 
 # Tracking parameters to strip
 TRACKING_PARAMS = {
@@ -34,6 +34,8 @@ URL_RE = re.compile(r"https?://[^\s<>\"']+")
 def normalize_url(raw_url: str) -> str:
     """Strip tracking params and fragments."""
     parsed = urlparse(raw_url.strip().rstrip("/"))
+    # RFC 3986 §3.2.2: hostname is case-insensitive
+    parsed = parsed._replace(netloc=parsed.netloc.lower())
     params = parse_qs(parsed.query, keep_blank_values=False)
     cleaned = {k: v for k, v in params.items() if k.lower() not in TRACKING_PARAMS}
     new_query = urlencode(cleaned, doseq=True) if cleaned else ""
@@ -61,22 +63,37 @@ def ingest_urls(urls: list[str], source: str = "cli") -> dict:
     added = 0
     skipped = 0
 
-    for url in urls:
-        domain = urlparse(url).netloc
-        url_hash = hashlib.sha256(url.encode()).hexdigest()
-        try:
-            conn.execute(
-                "INSERT INTO items (url, domain, source, added_at, url_hash) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (url, domain, source, now, url_hash),
-            )
-            added += 1
-        except sqlite3.IntegrityError:
-            skipped += 1
-
-    conn.commit()
-    conn.close()
+    try:
+        for url in urls:
+            domain = urlparse(url).netloc
+            url_hash = hashlib.sha256(url.encode()).hexdigest()
+            try:
+                conn.execute(
+                    "INSERT INTO items (url, domain, source, added_at, url_hash) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (url, domain, source, now, url_hash),
+                )
+                added += 1
+            except sqlite3.IntegrityError:
+                skipped += 1
+        conn.commit()
+    finally:
+        conn.close()
     return {"added": added, "skipped": skipped, "total": len(urls)}
+
+
+def extract_urls_from_obsidian_vault(vault_path: Path, after_date: datetime | None = None) -> list[str]:
+    """Extract URLs from markdown files in an Obsidian vault."""
+    urls = []
+    for md_file in vault_path.rglob("*.md"):
+        try:
+            file_mtime = datetime.fromtimestamp(md_file.stat().st_mtime)
+            if after_date and file_mtime < after_date:
+                continue
+            urls.extend(extract_urls(md_file.read_text()))
+        except OSError as e:
+            print(f"Error processing file {md_file}: {e}", file=sys.stderr)
+    return urls
 
 
 def main():
@@ -90,9 +107,12 @@ def main():
     )
     parser.add_argument("inputs", nargs="*", help="URLs or path to a file containing URLs")
     parser.add_argument("--stdin", action="store_true", help="Read URLs from stdin")
+    parser.add_argument("--obsidian", type=str, help="Path to Obsidian vault")
+    parser.add_argument("--after", type=str, help="Date filter (YYYY-MM-DD)")
     args = parser.parse_args()
 
     urls = []
+    source = "cli"
 
     if args.stdin:
         urls = extract_urls(sys.stdin.read())
@@ -105,6 +125,22 @@ def main():
                 urls.append(normalize_url(inp))
             else:
                 print(f"Warning: skipping unrecognized input: {inp}", file=sys.stderr)
+    elif args.obsidian:
+        vault_path = Path(args.obsidian)
+        if not vault_path.is_dir():
+            print(f"Error: {args.obsidian} is not a directory", file=sys.stderr)
+            sys.exit(1)
+
+        after_date = None
+        if args.after:
+            try:
+                after_date = datetime.strptime(args.after, "%Y-%m-%d")
+            except ValueError:
+                print("Error: Invalid date format. Use YYYY-MM-DD.", file=sys.stderr)
+                sys.exit(1)
+
+        urls = extract_urls_from_obsidian_vault(vault_path, after_date)
+        source = "obsidian"
     else:
         parser.print_help()
         sys.exit(1)
@@ -113,7 +149,7 @@ def main():
         print("No URLs found.", file=sys.stderr)
         sys.exit(1)
 
-    stats = ingest_urls(urls)
+    stats = ingest_urls(urls, source=source)
     print(f"Ingested: {stats['added']} new, {stats['skipped']} duplicates (of {stats['total']} URLs)")
 
 

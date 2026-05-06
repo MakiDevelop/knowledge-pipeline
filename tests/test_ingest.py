@@ -3,12 +3,11 @@
 import os
 import sys
 import tempfile
-
-import pytest
+from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from ingest import extract_urls, ingest_urls, normalize_url
+from ingest import extract_urls, extract_urls_from_obsidian_vault, ingest_urls, normalize_url
 
 
 class TestNormalizeUrl:
@@ -46,6 +45,12 @@ class TestNormalizeUrl:
         result = normalize_url(url)
         assert result == "https://example.com/article"
 
+    def test_lowercases_hostname(self):
+        url1 = normalize_url("https://Example.COM/Article")
+        url2 = normalize_url("https://example.com/Article")
+        assert url1 == url2
+        assert "example.com" in url1
+
 
 class TestExtractUrls:
     def test_extracts_from_text(self):
@@ -73,6 +78,32 @@ class TestExtractUrls:
         urls = extract_urls(text)
         assert len(urls) == 1
         assert ">" not in urls[0]
+
+
+class TestExtractUrlsFromObsidianVault:
+    def test_extracts_urls_from_markdown_files(self, tmp_path):
+        (tmp_path / "note.md").write_text("Read https://example.com/a", encoding="utf-8")
+        nested = tmp_path / "folder"
+        nested.mkdir()
+        (nested / "nested.md").write_text("Also https://example.com/b", encoding="utf-8")
+        (tmp_path / "ignore.txt").write_text("https://example.com/c", encoding="utf-8")
+
+        urls = extract_urls_from_obsidian_vault(tmp_path)
+
+        assert urls == ["https://example.com/a", "https://example.com/b"]
+
+    def test_filters_markdown_files_by_mtime(self, tmp_path):
+        old_note = tmp_path / "old.md"
+        old_note.write_text("https://example.com/old", encoding="utf-8")
+        old_ts = (datetime.now() - timedelta(days=2)).timestamp()
+        os.utime(old_note, (old_ts, old_ts))
+
+        new_note = tmp_path / "new.md"
+        new_note.write_text("https://example.com/new", encoding="utf-8")
+
+        urls = extract_urls_from_obsidian_vault(tmp_path, datetime.now() - timedelta(days=1))
+
+        assert urls == ["https://example.com/new"]
 
 
 class TestIngestUrls:

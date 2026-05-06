@@ -149,9 +149,13 @@ class SearchHandler(BaseHTTPRequestHandler):
             self._json_response({"error": "missing ?q= parameter"}, status=400)
             return
 
-        k = min(int(params.get("k", ["10"])[0]), 100)  # cap at 100
+        try:
+            k = min(int(params.get("k", ["10"])[0]), 100)  # cap at 100
+            min_score = int(params.get("min_score", ["0"])[0])
+        except (ValueError, TypeError):
+            self._json_response({"error": "k and min_score must be integers"}, status=400)
+            return
         domain = params.get("domain", [None])[0]
-        min_score = int(params.get("min_score", ["0"])[0])
 
         t0 = time.time()
 
@@ -224,8 +228,8 @@ def main():
 
     server = HTTPServer(("0.0.0.0", args.port), SearchHandler)
     print(f"  Listening on http://0.0.0.0:{args.port}")
-    print(f"  NOTE: This is a development server. Use a reverse proxy for production.")
-    print(f"  Endpoints: /search?q=... /stats /health /reload")
+    print("  NOTE: This is a development server. Use a reverse proxy for production.")
+    print("  Endpoints: /search?q=... /stats /health /reload")
     print()
 
     try:

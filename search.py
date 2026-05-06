@@ -16,12 +16,11 @@ Usage:
 import argparse
 import json
 import sys
-from pathlib import Path
 
 import numpy as np
 from FlagEmbedding import BGEM3FlagModel
 
-from config import DB_PATH, EMBED_DIM, EMBED_MODEL, get_db_connection, init_db
+from config import EMBED_DIM, EMBED_MODEL, get_db_connection, init_db
 
 RERANKER_NAME = "BAAI/bge-reranker-v2-m3"
 DEFAULT_TOP_K = 10
@@ -108,10 +107,21 @@ def hybrid_search(query_text: str, model, rows, matrix, sparse_list, top_k: int 
     return results
 
 
+_reranker = None
+
+
+def _get_reranker():
+    """Lazy-load and cache the reranker model (avoid reloading on every call)."""
+    global _reranker
+    if _reranker is None:
+        from FlagEmbedding import FlagReranker
+        _reranker = FlagReranker(RERANKER_NAME, use_fp16=True)
+    return _reranker
+
+
 def rerank(query: str, results: list[dict], top_k: int = 10) -> list[dict]:
     """Rerank results using cross-encoder."""
-    from FlagEmbedding import FlagReranker
-    reranker = FlagReranker(RERANKER_NAME, use_fp16=True)
+    reranker = _get_reranker()
 
     pairs = [(query, r.get("core_insight") or r.get("title") or r["url"]) for r in results]
     scores = reranker.compute_score(pairs, normalize=True)
