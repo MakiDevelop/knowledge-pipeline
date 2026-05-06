@@ -15,7 +15,6 @@ import ipaddress
 import json
 import re
 import socket
-import sys
 import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse

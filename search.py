@@ -16,12 +16,11 @@ Usage:
 import argparse
 import json
 import sys
-from pathlib import Path
 
 import numpy as np
 from FlagEmbedding import BGEM3FlagModel
 
-from config import DB_PATH, EMBED_DIM, EMBED_MODEL, get_db_connection, init_db
+from config import EMBED_DIM, EMBED_MODEL, get_db_connection, init_db
 
 RERANKER_NAME = "BAAI/bge-reranker-v2-m3"
 DEFAULT_TOP_K = 10

@@ -154,8 +154,8 @@ def main():
 
     server = HTTPServer(("0.0.0.0", args.port), SearchHandler)
     print(f"  Listening on http://0.0.0.0:{args.port}")
-    print(f"  NOTE: This is a development server. Use a reverse proxy for production.")
-    print(f"  Endpoints: /search?q=... /stats /health /reload")
+    print("  NOTE: This is a development server. Use a reverse proxy for production.")
+    print("  Endpoints: /search?q=... /stats /health /reload")
     print()
 
     try:

@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from config import DB_PATH, get_db_connection, init_db
+from config import get_db_connection, init_db
 
 # Tracking parameters to strip
 TRACKING_PARAMS = {
@@ -82,6 +82,20 @@ def ingest_urls(urls: list[str], source: str = "cli") -> dict:
     return {"added": added, "skipped": skipped, "total": len(urls)}
 
 
+def extract_urls_from_obsidian_vault(vault_path: Path, after_date: datetime | None = None) -> list[str]:
+    """Extract URLs from markdown files in an Obsidian vault."""
+    urls = []
+    for md_file in vault_path.rglob("*.md"):
+        try:
+            file_mtime = datetime.fromtimestamp(md_file.stat().st_mtime)
+            if after_date and file_mtime < after_date:
+                continue
+            urls.extend(extract_urls(md_file.read_text()))
+        except OSError as e:
+            print(f"Error processing file {md_file}: {e}", file=sys.stderr)
+    return urls
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ingest URLs into the knowledge pipeline",
@@ -98,6 +112,7 @@ def main():
     args = parser.parse_args()
 
     urls = []
+    source = "cli"
 
     if args.stdin:
         urls = extract_urls(sys.stdin.read())
@@ -124,17 +139,8 @@ def main():
                 print("Error: Invalid date format. Use YYYY-MM-DD.", file=sys.stderr)
                 sys.exit(1)
 
-        for md_file in vault_path.rglob("*.md"):
-            try:
-                file_content = md_file.read_text()
-                file_mtime = datetime.fromtimestamp(md_file.stat().st_mtime)
-
-                if after_date and file_mtime < after_date:
-                    continue
-
-                urls.extend(extract_urls(file_content))
-            except Exception as e:
-                print(f"Error processing file {md_file}: {e}", file=sys.stderr)
+        urls = extract_urls_from_obsidian_vault(vault_path, after_date)
+        source = "obsidian"
     else:
         parser.print_help()
         sys.exit(1)
@@ -143,7 +149,7 @@ def main():
         print("No URLs found.", file=sys.stderr)
         sys.exit(1)
 
-    stats = ingest_urls(urls, source="obsidian")
+    stats = ingest_urls(urls, source=source)
     print(f"Ingested: {stats['added']} new, {stats['skipped']} duplicates (of {stats['total']} URLs)")
 
 
