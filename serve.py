@@ -38,6 +38,103 @@ _sparse = None
 _use_rerank = False
 _stats = {"start_time": 0, "queries": 0, "avg_latency_ms": 0, "_latency_sum": 0}
 
+HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Search</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+        .result {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .score {
+            font-weight: bold;
+        }
+        .route {
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Knowledge Search</h1>
+    <form id="search-form">
+        <input type="text" id="query" name="q" placeholder="Enter your search query">
+        <button type="submit">Search</button>
+    </form>
+    <div id="results"></div>
+
+    <script>
+        const form = document.getElementById('search-form');
+        const resultsDiv = document.getElementById('results');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const query = document.getElementById('query').value.trim();
+            if (!query) {
+                return;
+            }
+
+            resultsDiv.replaceChildren();
+            const loading = document.createElement('p');
+            loading.textContent = 'Searching...';
+            resultsDiv.appendChild(loading);
+
+            try {
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                resultsDiv.replaceChildren();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Search failed');
+                }
+
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(result => {
+                        const resultDiv = document.createElement('div');
+                        resultDiv.className = 'result';
+
+                        const score = document.createElement('div');
+                        score.className = 'score';
+                        score.textContent = `Score: ${(result.signal_score || 0).toFixed(3)}`;
+
+                        const route = document.createElement('div');
+                        route.className = 'route';
+                        route.textContent = `Route: ${result.route || 'unknown'}`;
+
+                        const title = document.createElement('div');
+                        title.textContent = `Title: ${result.title || '(untitled)'}`;
+
+                        const insight = document.createElement('div');
+                        insight.textContent = `Core Insight: ${result.core_insight || ''}`;
+
+                        resultDiv.append(score, route, title, insight);
+                        resultsDiv.appendChild(resultDiv);
+                    });
+                } else {
+                    const empty = document.createElement('p');
+                    empty.textContent = 'No results found.';
+                    resultsDiv.appendChild(empty);
+                }
+            } catch (error) {
+                resultsDiv.replaceChildren();
+                const message = document.createElement('p');
+                message.textContent = error.message;
+                resultsDiv.appendChild(message);
+            }
+        });
+    </script>
+</body>
+</html>
+"""
+
 
 def _reload():
     """Load/reload embeddings from DB."""
@@ -66,8 +163,18 @@ class SearchHandler(BaseHTTPRequestHandler):
         elif path == "/reload":
             _reload()
             self._json_response({"status": "reloaded", "items": len(_rows)})
+        elif path == "/":
+            self._html_response()
         else:
             self._json_response({"error": "not found"}, status=404)
+
+    def _html_response(self):
+        body = HTML.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _handle_search(self, params):
         q = params.get("q", [""])[0]
