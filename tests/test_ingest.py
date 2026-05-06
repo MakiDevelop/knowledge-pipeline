@@ -46,6 +46,12 @@ class TestNormalizeUrl:
         result = normalize_url(url)
         assert result == "https://example.com/article"
 
+    def test_lowercases_hostname(self):
+        url1 = normalize_url("https://Example.COM/Article")
+        url2 = normalize_url("https://example.com/Article")
+        assert url1 == url2
+        assert "example.com" in url1
+
 
 class TestExtractUrls:
     def test_extracts_from_text(self):

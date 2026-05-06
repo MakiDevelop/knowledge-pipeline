@@ -76,8 +76,13 @@ def embed_remote(texts: list[str], remote_url: str) -> list[dict]:
 
     results = []
     for i in range(len(texts)):
+        dense = data["dense"][i]
+        if len(dense) != EMBED_DIM:
+            raise ValueError(
+                f"Remote server returned {len(dense)}-dim vector, expected {EMBED_DIM}"
+            )
         results.append({
-            "dense": data["dense"][i],
+            "dense": dense,
             "sparse": data.get("sparse", [{}])[i] if "sparse" in data else {},
         })
     return results

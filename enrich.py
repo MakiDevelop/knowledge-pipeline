@@ -11,13 +11,15 @@ Usage:
 
 import argparse
 import html.parser
+import ipaddress
 import json
 import re
+import socket
 import sys
 import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 from config import (
     LLM_API_KEY,
@@ -37,27 +39,49 @@ SKIP_DOMAINS = {"apps.apple.com", "drive.google.com", "play.google.com"}
 
 MAX_CONTENT_BYTES = 5 * 1024 * 1024  # 5MB limit to prevent OOM
 
-# Private/reserved IP ranges to block (SSRF protection)
-_BLOCKED_NETLOCS = {
-    "localhost", "127.0.0.1", "0.0.0.0", "[::1]",
-    "169.254.169.254",  # AWS metadata
-    "metadata.google.internal",  # GCP metadata
-}
+# Hostnames to always block (SSRF protection)
+_BLOCKED_HOSTNAMES = {"localhost", "metadata.google.internal"}
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    """Check if an IP address is private, loopback, link-local, or reserved."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+    except ValueError:
+        return True  # unparseable = block
 
 
 def _is_private_url(url: str) -> bool:
-    """Block requests to private/internal IPs (SSRF protection)."""
-    from urllib.parse import urlparse
-    import ipaddress
+    """Block requests to private/internal IPs (SSRF protection).
+
+    Resolves DNS first to prevent rebinding attacks. Checks ALL resolved
+    IPs, not just the hostname string.
+    """
     parsed = urlparse(url)
     hostname = parsed.hostname or ""
-    if hostname in _BLOCKED_NETLOCS:
+    if hostname in _BLOCKED_HOSTNAMES:
         return True
+    # Resolve DNS and check ALL resolved IPs
     try:
-        ip = ipaddress.ip_address(hostname)
-        return ip.is_private or ip.is_loopback or ip.is_link_local
-    except ValueError:
-        return False
+        for _, _, _, _, sockaddr in socket.getaddrinfo(hostname, None):
+            if _is_private_ip(sockaddr[0]):
+                return True
+    except socket.gaierror:
+        return True  # unresolvable = block
+    return False
+
+
+class _SSRFSafeRedirectHandler(HTTPRedirectHandler):
+    """Validate redirect targets against SSRF blocklist."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if _is_private_url(newurl):
+            raise ValueError(f"Redirect to private/internal URL blocked: {newurl}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_safe_opener = build_opener(_SSRFSafeRedirectHandler)
 
 
 # ── HTML text extraction (zero dependencies) ──
@@ -110,7 +134,7 @@ def fetch_url(url: str, timeout: int = 30) -> dict:
         return {"status": "skipped", "reason": "blocked: private/internal URL"}
     try:
         req = Request(url, headers={"User-Agent": USER_AGENT})
-        with urlopen(req, timeout=timeout) as resp:
+        with _safe_opener.open(req, timeout=timeout) as resp:
             content_type = resp.headers.get("Content-Type", "")
             if "text/html" not in content_type and "application/xhtml" not in content_type:
                 return {"status": "skipped", "reason": f"non-html: {content_type}"}
@@ -237,22 +261,26 @@ def main():
         "SELECT id, url, domain FROM items "
         "WHERE fetch_status = 'pending' ORDER BY added_at"
     )
+    query_params = []
     if args.limit > 0:
-        query += f" LIMIT {args.limit}"
+        query += " LIMIT ?"
+        query_params.append(args.limit)
 
-    rows = conn.execute(query).fetchall()
+    rows = conn.execute(query, query_params).fetchall()
     print(f"[Enrich] {len(rows)} pending items")
 
-    for i, row in enumerate(rows, 1):
-        print(f"  [{i}/{len(rows)}] {row['domain']} — {row['url'][-40:]}", end=" ", flush=True)
-        status = enrich_item(row["id"], row["url"], row["domain"], conn)
-        print(status)
-        if i % 10 == 0:
-            conn.commit()
-        time.sleep(0.5)
+    try:
+        for i, row in enumerate(rows, 1):
+            print(f"  [{i}/{len(rows)}] {row['domain']} — {row['url'][-40:]}", end=" ", flush=True)
+            status = enrich_item(row["id"], row["url"], row["domain"], conn)
+            print(status)
+            if i % 10 == 0:
+                conn.commit()
+            time.sleep(0.5)
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
     print(f"Done: {len(rows)} items processed")
 
 

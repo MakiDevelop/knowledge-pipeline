@@ -1,5 +1,13 @@
 # knowledge-pipeline
 
+> Stop feeding your RAG garbage.
+
+![CI](https://github.com/MakiDevelop/knowledge-pipeline/actions/workflows/ci.yml/badge.svg)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
+![feature image](examples/feature-image.png)
+
 **Auto-triage your knowledge. Score, route, search — no frameworks.**
 
 [繁體中文 README](README.zh-TW.md)
@@ -49,7 +57,7 @@ This pipeline gives your agents a **shared, persistent, scored knowledge layer**
 ### Install
 
 ```bash
-git clone https://github.com/makifordevelop/knowledge-pipeline.git
+git clone https://github.com/MakiDevelop/knowledge-pipeline.git
 cd knowledge-pipeline
 pip install -r requirements.txt
 
@@ -170,6 +178,17 @@ for r in results["results"]:
 | Reranker | BAAI/bge-reranker-v2-m3 | Cross-encoder for precision |
 | LLM | Any OpenAI-compatible | Ollama (local, free), OpenAI, Anthropic... |
 | Web server | stdlib HTTPServer | Zero dependencies for serving |
+
+## Security
+
+`enrich.py` fetches arbitrary user-supplied URLs — SSRF protection is critical:
+
+- **DNS resolution before fetch** — all resolved IPs are checked against private/reserved ranges, preventing DNS rebinding attacks
+- **Redirect validation** — every HTTP redirect target is re-validated through the same SSRF blocklist
+- **Coverage** — blocks RFC 1918, loopback, link-local, reserved ranges, AWS/GCP metadata endpoints, and unresolvable hostnames
+- **Parameterized SQL** — all user-influenced values use `?` placeholders, never f-string interpolation
+
+Found a vulnerability? Please [open an issue](https://github.com/MakiDevelop/knowledge-pipeline/issues) or email the maintainer directly.
 
 ## Requirements
 

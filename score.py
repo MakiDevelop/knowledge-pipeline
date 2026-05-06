@@ -241,25 +241,29 @@ def main():
         where += " AND signal_score IS NULL"
 
     query = f"SELECT id, url, domain, title, core_insight, full_text FROM items WHERE {where} ORDER BY added_at"
+    query_params = []
     if args.limit > 0:
-        query += f" LIMIT {args.limit}"
+        query += " LIMIT ?"
+        query_params.append(args.limit)
 
-    rows = conn.execute(query).fetchall()
+    rows = conn.execute(query, query_params).fetchall()
     print(f"[Score] {len(rows)} items to score")
 
-    for i, row in enumerate(rows, 1):
-        print(f"  [{i}/{len(rows)}] {row['domain']}", end=" ", flush=True)
-        scores = score_item(row, conn, dry_run=args.dry_run)
-        sig = scores["signal_score"]
-        route = scores["route_to"]
-        print(f"signal={sig} route={route}")
+    try:
+        for i, row in enumerate(rows, 1):
+            print(f"  [{i}/{len(rows)}] {row['domain']}", end=" ", flush=True)
+            scores = score_item(row, conn, dry_run=args.dry_run)
+            sig = scores["signal_score"]
+            route = scores["route_to"]
+            print(f"signal={sig} route={route}")
 
-        if i % 10 == 0:
-            conn.commit()
-        time.sleep(0.3)
+            if i % 10 == 0:
+                conn.commit()
+            time.sleep(0.3)
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
     print(f"Done: {len(rows)} items scored")
 
 

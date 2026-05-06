@@ -108,10 +108,21 @@ def hybrid_search(query_text: str, model, rows, matrix, sparse_list, top_k: int 
     return results
 
 
+_reranker = None
+
+
+def _get_reranker():
+    """Lazy-load and cache the reranker model (avoid reloading on every call)."""
+    global _reranker
+    if _reranker is None:
+        from FlagEmbedding import FlagReranker
+        _reranker = FlagReranker(RERANKER_NAME, use_fp16=True)
+    return _reranker
+
+
 def rerank(query: str, results: list[dict], top_k: int = 10) -> list[dict]:
     """Rerank results using cross-encoder."""
-    from FlagEmbedding import FlagReranker
-    reranker = FlagReranker(RERANKER_NAME, use_fp16=True)
+    reranker = _get_reranker()
 
     pairs = [(query, r.get("core_insight") or r.get("title") or r["url"]) for r in results]
     scores = reranker.compute_score(pairs, normalize=True)
