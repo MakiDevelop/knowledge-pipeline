@@ -1,6 +1,7 @@
 """Tests for enrich.py — HTML extraction and SSRF protection."""
 
 import os
+import socket
 import sys
 
 
@@ -26,7 +27,12 @@ class TestIsPrivateUrl:
     def test_blocks_gcp_metadata(self):
         assert _is_private_url("http://metadata.google.internal/computeMetadata/v1/") is True
 
-    def test_allows_public_urls(self):
+    def test_allows_public_urls(self, monkeypatch):
+        monkeypatch.setattr(
+            socket,
+            "getaddrinfo",
+            lambda *args: [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 443))],
+        )
         assert _is_private_url("https://example.com/page") is False
         assert _is_private_url("https://github.com/repo") is False
 

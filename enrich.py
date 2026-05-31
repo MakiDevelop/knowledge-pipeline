@@ -13,6 +13,7 @@ import argparse
 import html.parser
 import ipaddress
 import json
+import logging
 import re
 import socket
 import time
@@ -115,8 +116,8 @@ def extract_text_from_html(html_content: str) -> str:
     extractor = _HTMLTextExtractor()
     try:
         extractor.feed(html_content)
-    except Exception:
-        pass
+    except Exception as e:
+        logging.getLogger(__name__).warning("HTML parse failed: %s", e)
     return extractor.get_text()
 
 
