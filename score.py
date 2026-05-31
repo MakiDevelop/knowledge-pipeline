@@ -13,12 +13,16 @@ Usage:
   python3 score.py --dry-run    # Preview without writing
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import logging
 import re
+import sqlite3
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from config import (
     LLM_API_KEY,
@@ -35,7 +39,9 @@ from config import (
 # Each dimension is scored 0-5 by the LLM.
 # The prompt includes calibration baselines to ensure consistency.
 
-SCORING_PROMPT = """You are a knowledge analyst. Score the following content on multiple dimensions.
+ScoreDict = dict[str, Any]
+
+SCORING_PROMPT: str = """You are a knowledge analyst. Score the following content on multiple dimensions.
 Respond in strict JSON only (no other text).
 
 Title: {title}
@@ -64,7 +70,7 @@ Calibration (follow strictly):
 - actionability: 1=info only, 2=changes thinking, 3=changes decisions, 4=can build/test now, 5=complete implementation guide
 - source_credibility: 1=anonymous, 2=social media, 3=tech blog, 4=major publication/official, 5=academic paper/gov report"""
 
-DEFAULT_SCORES = {
+DEFAULT_SCORES: ScoreDict = {
     "knowledge_density": 2,
     "novelty": 2,
     "evidence_strength": 2,
@@ -76,20 +82,20 @@ DEFAULT_SCORES = {
     "decision_reason": "Unable to score (LLM unavailable)",
 }
 
-VALID_TIME_HORIZONS = {"short", "mid", "long"}
+VALID_TIME_HORIZONS: set[str] = {"short", "mid", "long"}
 
 # ── Routes ──
 # Each item is routed to a destination based on its scores.
 # Customize these for your workflow.
 
-ROUTE_RESEARCH = "research"    # Needs deeper investigation
-ROUTE_WRITER = "writer"        # Good for writing/publishing
-ROUTE_ACTION = "action"        # Directly actionable
-ROUTE_VALIDATOR = "validator"  # Needs fact-checking
-ROUTE_ARCHIVE = "archive"      # Low priority, file away
+ROUTE_RESEARCH: str = "research"    # Needs deeper investigation
+ROUTE_WRITER: str = "writer"        # Good for writing/publishing
+ROUTE_ACTION: str = "action"        # Directly actionable
+ROUTE_VALIDATOR: str = "validator"  # Needs fact-checking
+ROUTE_ARCHIVE: str = "archive"      # Low priority, file away
 
 
-def compute_route(scores: dict) -> str:
+def compute_route(scores: ScoreDict) -> str:
     """Determine where this item should go based on scores."""
     act = scores.get("actionability", 0)
     rl = scores.get("risk_level", 0)
@@ -117,7 +123,7 @@ def compute_route(scores: dict) -> str:
     return ROUTE_ARCHIVE
 
 
-def compute_signal_score(scores: dict) -> int:
+def compute_signal_score(scores: ScoreDict) -> int:
     """Composite signal score (0-100) for ranking and thresholds.
 
     Higher = more valuable knowledge. Used to decide publishing,
@@ -142,7 +148,7 @@ def compute_signal_score(scores: dict) -> int:
     return max(0, min(100, int(raw * 100 / 95)))
 
 
-def _call_llm(prompt: str) -> dict | None:
+def _call_llm(prompt: str) -> ScoreDict | None:
     """Call LLM and return parsed JSON scores."""
     from urllib.request import Request, urlopen
 
@@ -175,9 +181,9 @@ def _call_llm(prompt: str) -> dict | None:
         return None
 
 
-def validate_scores(raw: dict) -> dict:
+def validate_scores(raw: ScoreDict) -> ScoreDict:
     """Clamp and validate LLM output, fallback to defaults."""
-    scores = {}
+    scores: ScoreDict = {}
     for key in ("knowledge_density", "novelty", "evidence_strength",
                 "actionability", "risk_level", "emotional_noise", "source_credibility"):
         val = raw.get(key, DEFAULT_SCORES[key])
@@ -189,7 +195,7 @@ def validate_scores(raw: dict) -> dict:
     return scores
 
 
-def score_item(item, conn, dry_run: bool = False) -> dict:
+def score_item(item: sqlite3.Row, conn: sqlite3.Connection, dry_run: bool = False) -> ScoreDict:
     """Score a single item. Returns the scores dict."""
     prompt = SCORING_PROMPT.format(
         title=item["title"] or "(no title)",
@@ -226,7 +232,7 @@ def score_item(item, conn, dry_run: bool = False) -> dict:
     return scores
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Score enriched items with multi-dimensional LLM analysis")
     parser.add_argument("--limit", type=int, default=0, help="Max items to score")
     parser.add_argument("--rescore", action="store_true", help="Re-score already scored items")
@@ -241,7 +247,7 @@ def main():
         where += " AND signal_score IS NULL"
 
     query = f"SELECT id, url, domain, title, core_insight, full_text FROM items WHERE {where} ORDER BY added_at"
-    query_params = []
+    query_params: list[int] = []
     if args.limit > 0:
         query += " LIMIT ?"
         query_params.append(args.limit)

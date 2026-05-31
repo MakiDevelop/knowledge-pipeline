@@ -13,25 +13,36 @@ Usage:
   python3 search.py "Docker" --domain github.com
 """
 
+from __future__ import annotations
+
 import argparse
 import json
+import sqlite3
 import sys
+from typing import Any
 
 import numpy as np
 from FlagEmbedding import BGEM3FlagModel
 
 from config import EMBED_DIM, EMBED_MODEL, get_db_connection, init_db
 
-RERANKER_NAME = "BAAI/bge-reranker-v2-m3"
-DEFAULT_TOP_K = 10
-DENSE_WEIGHT = 0.7
-SPARSE_WEIGHT = 0.3
+SearchFilters = dict[str, str | int]
+SearchResult = dict[str, Any]
+SparseWeights = dict[str, float]
+
+RERANKER_NAME: str = "BAAI/bge-reranker-v2-m3"
+DEFAULT_TOP_K: int = 10
+DENSE_WEIGHT: float = 0.7
+SPARSE_WEIGHT: float = 0.3
 
 
-def load_embeddings(conn, filters: dict | None = None):
+def load_embeddings(
+    conn: sqlite3.Connection,
+    filters: SearchFilters | None = None,
+) -> tuple[list[sqlite3.Row], np.ndarray, list[SparseWeights]]:
     """Load embedding matrix and sparse weights from DB."""
     where = ["embedding IS NOT NULL", "length(embedding) > 2"]
-    params = []
+    params: list[str | int] = []
 
     if filters:
         if filters.get("domain"):
@@ -48,7 +59,7 @@ def load_embeddings(conn, filters: dict | None = None):
         return [], np.array([]), []
 
     matrix = np.zeros((len(rows), EMBED_DIM), dtype=np.float32)
-    sparse_list = []
+    sparse_list: list[SparseWeights] = []
     for i, row in enumerate(rows):
         vec = json.loads(row["embedding"])
         matrix[i] = np.array(vec, dtype=np.float32)
@@ -58,7 +69,15 @@ def load_embeddings(conn, filters: dict | None = None):
     return rows, matrix, sparse_list
 
 
-def hybrid_search(query_text: str, model, rows, matrix, sparse_list, top_k: int = 10, dense_only: bool = False):
+def hybrid_search(
+    query_text: str,
+    model: Any,
+    rows: list[sqlite3.Row],
+    matrix: np.ndarray,
+    sparse_list: list[SparseWeights],
+    top_k: int = 10,
+    dense_only: bool = False,
+) -> list[SearchResult]:
     """Perform hybrid search (dense + sparse). Returns scored results."""
     q_output = model.encode(
         [query_text], return_dense=True, return_sparse=True, return_colbert_vecs=False
@@ -87,7 +106,7 @@ def hybrid_search(query_text: str, model, rows, matrix, sparse_list, top_k: int 
 
     top_indices = np.argsort(final_scores)[::-1][:top_k]
 
-    results = []
+    results: list[SearchResult] = []
     for idx in top_indices:
         idx = int(idx)
         if final_scores[idx] <= 0:
@@ -107,10 +126,10 @@ def hybrid_search(query_text: str, model, rows, matrix, sparse_list, top_k: int 
     return results
 
 
-_reranker = None
+_reranker: Any | None = None
 
 
-def _get_reranker():
+def _get_reranker() -> Any:
     """Lazy-load and cache the reranker model (avoid reloading on every call)."""
     global _reranker
     if _reranker is None:
@@ -119,7 +138,7 @@ def _get_reranker():
     return _reranker
 
 
-def rerank(query: str, results: list[dict], top_k: int = 10) -> list[dict]:
+def rerank(query: str, results: list[SearchResult], top_k: int = 10) -> list[SearchResult]:
     """Rerank results using cross-encoder."""
     reranker = _get_reranker()
 
@@ -135,7 +154,7 @@ def rerank(query: str, results: list[dict], top_k: int = 10) -> list[dict]:
     return results[:top_k]
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Hybrid semantic search over your knowledge base",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -160,7 +179,7 @@ def main():
     print(f"Loading model {EMBED_MODEL}...", file=sys.stderr)
     model = BGEM3FlagModel(EMBED_MODEL, use_fp16=True)
 
-    filters = {}
+    filters: SearchFilters = {}
     if args.domain:
         filters["domain"] = args.domain
     if args.min_score:

@@ -16,13 +16,18 @@ Endpoints:
   GET  /health
 """
 
+from __future__ import annotations
+
 import argparse
 import json
+import sqlite3
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+import numpy as np
 from FlagEmbedding import BGEM3FlagModel
 
 from config import EMBED_MODEL, SERVE_PORT, get_db_connection, init_db
@@ -30,15 +35,18 @@ from search import hybrid_search, load_embeddings, rerank
 
 # ── Global state (loaded at startup) ──
 
-_model = None
-_conn = None
-_rows = None
-_matrix = None
-_sparse = None
-_use_rerank = False
-_stats = {"start_time": 0, "queries": 0, "avg_latency_ms": 0, "_latency_sum": 0}
+SparseWeights = dict[str, float]
+SearchResult = dict[str, Any]
 
-HTML = """
+_model: Any | None = None
+_conn: sqlite3.Connection | None = None
+_rows: list[sqlite3.Row] | None = None
+_matrix: np.ndarray | None = None
+_sparse: list[SparseWeights] | None = None
+_use_rerank: bool = False
+_stats: dict[str, float] = {"start_time": 0, "queries": 0, "avg_latency_ms": 0, "_latency_sum": 0}
+
+HTML: str = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -136,7 +144,7 @@ HTML = """
 """
 
 
-def _reload():
+def _reload() -> None:
     """Load/reload embeddings from DB."""
     global _rows, _matrix, _sparse
     _rows, _matrix, _sparse = load_embeddings(_conn)
@@ -144,7 +152,7 @@ def _reload():
 
 
 class SearchHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
         params = parse_qs(parsed.query)
@@ -168,7 +176,7 @@ class SearchHandler(BaseHTTPRequestHandler):
         else:
             self._json_response({"error": "not found"}, status=404)
 
-    def _html_response(self):
+    def _html_response(self) -> None:
         body = HTML.encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -176,7 +184,7 @@ class SearchHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _handle_search(self, params):
+    def _handle_search(self, params: dict[str, list[str]]) -> None:
         q = params.get("q", [""])[0]
         if not q:
             self._json_response({"error": "missing ?q= parameter"}, status=400)
@@ -194,7 +202,7 @@ class SearchHandler(BaseHTTPRequestHandler):
 
         # Filter if needed
         if domain or min_score:
-            filters = {}
+            filters: dict[str, str | int] = {}
             if domain:
                 filters["domain"] = domain
             if min_score:
@@ -225,7 +233,7 @@ class SearchHandler(BaseHTTPRequestHandler):
             "latency_ms": round(elapsed_ms, 1),
         })
 
-    def _json_response(self, data, status=200):
+    def _json_response(self, data: dict[str, Any], status: int = 200) -> None:
         body = json.dumps(data, ensure_ascii=False).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -233,13 +241,13 @@ class SearchHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args: Any) -> None:
         # Quieter logging
         if "/health" not in str(args):
             sys.stderr.write(f"[{self.log_date_time_string()}] {format % args}\n")
 
 
-def main():
+def main() -> None:
     global _model, _conn, _rows, _matrix, _sparse, _use_rerank
 
     parser = argparse.ArgumentParser(description="Knowledge search HTTP API server")

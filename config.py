@@ -4,12 +4,15 @@ Reads from environment variables or .env file.
 No external dependencies.
 """
 
+from __future__ import annotations
+
 import os
+import sqlite3
 from pathlib import Path
 
 # ── Load .env if present ──
 
-_ENV_PATH = Path(__file__).parent / ".env"
+_ENV_PATH: Path = Path(__file__).parent / ".env"
 if _ENV_PATH.exists():
     with open(_ENV_PATH) as f:
         for line in f:
@@ -20,35 +23,34 @@ if _ENV_PATH.exists():
 
 # ── Database ──
 
-DB_PATH = Path(__file__).parent / "knowledge.db"
+DB_PATH: Path = Path(__file__).parent / "knowledge.db"
 
 # ── LLM Backend (OpenAI-compatible) ──
 
-LLM_BASE_URL = os.environ.get(
+LLM_BASE_URL: str = os.environ.get(
     "LLM_BASE_URL", "http://localhost:11434/v1/chat/completions"
 )
-LLM_MODEL = os.environ.get("LLM_MODEL", "qwen2.5:7b")
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
-LLM_TIMEOUT = int(os.environ.get("LLM_TIMEOUT", "120"))
+LLM_MODEL: str = os.environ.get("LLM_MODEL", "qwen2.5:7b")
+LLM_API_KEY: str = os.environ.get("LLM_API_KEY", "")
+LLM_TIMEOUT: int = int(os.environ.get("LLM_TIMEOUT", "120"))
 
 # ── Embedding ──
 
-EMBED_MODEL = "BAAI/bge-m3"
-EMBED_DIM = 1024
-EMBED_REMOTE_URL = os.environ.get("EMBED_REMOTE_URL", "")
+EMBED_MODEL: str = "BAAI/bge-m3"
+EMBED_DIM: int = 1024
+EMBED_REMOTE_URL: str = os.environ.get("EMBED_REMOTE_URL", "")
 
 # ── Server ──
 
-SERVE_PORT = int(os.environ.get("SERVE_PORT", "8780"))
+SERVE_PORT: int = int(os.environ.get("SERVE_PORT", "8780"))
 
 # ── Scoring ──
 
-SCORING_PROMPT_VERSION = "v1.0"
+SCORING_PROMPT_VERSION: str = "v1.0"
 
 
-def get_db_connection():
+def get_db_connection() -> sqlite3.Connection:
     """Return a SQLite connection with row_factory and WAL mode."""
-    import sqlite3
     conn = sqlite3.connect(str(DB_PATH), timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -56,7 +58,7 @@ def get_db_connection():
     return conn
 
 
-def init_db():
+def init_db() -> None:
     """Create tables if they don't exist."""
     schema_path = Path(__file__).parent / "schema.sql"
     conn = get_db_connection()

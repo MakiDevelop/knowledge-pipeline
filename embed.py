@@ -12,16 +12,23 @@ Usage:
   python3 embed.py --remote URL   # Use a remote embedding server
 """
 
+from __future__ import annotations
+
 import argparse
 import json
+import sqlite3
 import sys
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from config import EMBED_DIM, EMBED_MODEL, EMBED_REMOTE_URL, get_db_connection, init_db
 
 
-def get_embedding_text(row) -> str:
+EmbeddingResult = dict[str, list[float] | dict[str, float]]
+
+
+def get_embedding_text(row: sqlite3.Row) -> str:
     """Build the text to embed from item fields."""
     parts = []
     if row["core_insight"]:
@@ -35,10 +42,10 @@ def get_embedding_text(row) -> str:
     return " ".join(parts)
 
 
-_local_model = None
+_local_model: Any | None = None
 
 
-def _get_local_model():
+def _get_local_model() -> Any:
     """Lazy-load and cache the embedding model (avoid reloading on every call)."""
     global _local_model
     if _local_model is None:
@@ -47,7 +54,7 @@ def _get_local_model():
     return _local_model
 
 
-def embed_local(texts: list[str]) -> list[dict]:
+def embed_local(texts: list[str]) -> list[EmbeddingResult]:
     """Embed texts using local bge-m3 model. Returns list of {dense, sparse}."""
     model = _get_local_model()
     output = model.encode(
@@ -56,7 +63,7 @@ def embed_local(texts: list[str]) -> list[dict]:
         return_sparse=True,
         return_colbert_vecs=False,
     )
-    results = []
+    results: list[EmbeddingResult] = []
     for i in range(len(texts)):
         dense = output["dense_vecs"][i].tolist()
         sparse = {str(k): float(v) for k, v in output["lexical_weights"][i].items()}
@@ -64,7 +71,7 @@ def embed_local(texts: list[str]) -> list[dict]:
     return results
 
 
-def embed_remote(texts: list[str], remote_url: str) -> list[dict]:
+def embed_remote(texts: list[str], remote_url: str) -> list[EmbeddingResult]:
     """Embed texts via a remote HTTP embedding server."""
     from urllib.request import Request, urlopen
 
@@ -72,9 +79,9 @@ def embed_remote(texts: list[str], remote_url: str) -> list[dict]:
     req = Request(remote_url, data=body, method="POST", headers={"Content-Type": "application/json"})
 
     with urlopen(req, timeout=120) as resp:
-        data = json.loads(resp.read())
+        data: dict[str, Any] = json.loads(resp.read())
 
-    results = []
+    results: list[EmbeddingResult] = []
     for i in range(len(texts)):
         dense = data["dense"][i]
         if len(dense) != EMBED_DIM:
@@ -88,7 +95,7 @@ def embed_remote(texts: list[str], remote_url: str) -> list[dict]:
     return results
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Generate embeddings for scored items")
     parser.add_argument("--rebuild", action="store_true", help="Clear and re-embed all items")
     parser.add_argument("--remote", type=str, default=EMBED_REMOTE_URL, help="Remote embedding server URL")
