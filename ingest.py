@@ -10,6 +10,8 @@ Usage:
   echo "https://example.com" | python3 ingest.py --stdin
 """
 
+from __future__ import annotations
+
 import argparse
 import hashlib
 import re
@@ -22,13 +24,13 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from config import get_db_connection, init_db
 
 # Tracking parameters to strip
-TRACKING_PARAMS = {
+TRACKING_PARAMS: set[str] = {
     "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
     "fbclid", "gclid", "ref", "ref_src", "ref_url",
     "igsh", "si", "xmt", "slof", "hsLang",
 }
 
-URL_RE = re.compile(r"https?://[^\s<>\"']+")
+URL_RE: re.Pattern[str] = re.compile(r"https?://[^\s<>\"']+")
 
 
 def normalize_url(raw_url: str) -> str:
@@ -44,9 +46,9 @@ def normalize_url(raw_url: str) -> str:
 
 def extract_urls(text: str) -> list[str]:
     """Extract and normalize all URLs from text."""
-    raw = URL_RE.findall(text)
-    seen = set()
-    result = []
+    raw: list[str] = URL_RE.findall(text)
+    seen: set[str] = set()
+    result: list[str] = []
     for url in raw:
         normalized = normalize_url(url)
         if normalized not in seen:
@@ -55,7 +57,7 @@ def extract_urls(text: str) -> list[str]:
     return result
 
 
-def ingest_urls(urls: list[str], source: str = "cli") -> dict:
+def ingest_urls(urls: list[str], source: str = "cli") -> dict[str, int]:
     """Insert URLs into the database. Returns stats."""
     init_db()
     conn = get_db_connection()
@@ -84,7 +86,7 @@ def ingest_urls(urls: list[str], source: str = "cli") -> dict:
 
 def extract_urls_from_obsidian_vault(vault_path: Path, after_date: datetime | None = None) -> list[str]:
     """Extract URLs from markdown files in an Obsidian vault."""
-    urls = []
+    urls: list[str] = []
     for md_file in vault_path.rglob("*.md"):
         try:
             file_mtime = datetime.fromtimestamp(md_file.stat().st_mtime)
@@ -96,7 +98,7 @@ def extract_urls_from_obsidian_vault(vault_path: Path, after_date: datetime | No
     return urls
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Ingest URLs into the knowledge pipeline",
         epilog="Examples:\n"
@@ -111,7 +113,7 @@ def main():
     parser.add_argument("--after", type=str, help="Date filter (YYYY-MM-DD)")
     args = parser.parse_args()
 
-    urls = []
+    urls: list[str] = []
     source = "cli"
 
     if args.stdin:

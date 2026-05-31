@@ -9,15 +9,20 @@ Usage:
   python3 enrich.py --limit 10   # Process up to 10 items
 """
 
+from __future__ import annotations
+
 import argparse
 import html.parser
 import ipaddress
 import json
 import logging
 import re
+import sqlite3
 import socket
 import time
 from datetime import datetime, timezone
+from http.client import HTTPMessage
+from typing import Any
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
@@ -30,17 +35,20 @@ from config import (
     init_db,
 )
 
-USER_AGENT = (
+FetchResult = dict[str, str | None]
+LLMResult = dict[str, Any]
+
+USER_AGENT: str = (
     "Mozilla/5.0 (compatible; knowledge-pipeline/1.0; "
     "+https://github.com/makifordevelop/knowledge-pipeline)"
 )
 
-SKIP_DOMAINS = {"apps.apple.com", "drive.google.com", "play.google.com"}
+SKIP_DOMAINS: set[str] = {"apps.apple.com", "drive.google.com", "play.google.com"}
 
-MAX_CONTENT_BYTES = 5 * 1024 * 1024  # 5MB limit to prevent OOM
+MAX_CONTENT_BYTES: int = 5 * 1024 * 1024  # 5MB limit to prevent OOM
 
 # Hostnames to always block (SSRF protection)
-_BLOCKED_HOSTNAMES = {"localhost", "metadata.google.internal"}
+_BLOCKED_HOSTNAMES: set[str] = {"localhost", "metadata.google.internal"}
 
 
 def _is_private_ip(ip_str: str) -> bool:
@@ -75,7 +83,15 @@ def _is_private_url(url: str) -> bool:
 class _SSRFSafeRedirectHandler(HTTPRedirectHandler):
     """Validate redirect targets against SSRF blocklist."""
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
+    def redirect_request(
+        self,
+        req: Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
+    ) -> Request | None:
         if _is_private_url(newurl):
             raise ValueError(f"Redirect to private/internal URL blocked: {newurl}")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
@@ -87,28 +103,28 @@ _safe_opener = build_opener(_SSRFSafeRedirectHandler)
 # ── HTML text extraction (zero dependencies) ──
 
 class _HTMLTextExtractor(html.parser.HTMLParser):
-    SKIP_TAGS = {"script", "style", "nav", "footer", "header", "aside", "noscript"}
+    SKIP_TAGS: set[str] = {"script", "style", "nav", "footer", "header", "aside", "noscript"}
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.result = []
-        self._skip = 0
+        self.result: list[str] = []
+        self._skip: int = 0
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in self.SKIP_TAGS:
             self._skip += 1
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         if tag in self.SKIP_TAGS and self._skip > 0:
             self._skip -= 1
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         if self._skip == 0:
             text = data.strip()
             if text:
                 self.result.append(text)
 
-    def get_text(self):
+    def get_text(self) -> str:
         return "\n".join(self.result)
 
 
@@ -128,7 +144,7 @@ def extract_title_from_html(html_content: str) -> str | None:
 
 # ── URL fetching ──
 
-def fetch_url(url: str, timeout: int = 30) -> dict:
+def fetch_url(url: str, timeout: int = 30) -> FetchResult:
     """Fetch a URL and return {html, title, text, status}."""
     if _is_private_url(url):
         return {"status": "skipped", "reason": "blocked: private/internal URL"}
@@ -159,7 +175,7 @@ def fetch_url(url: str, timeout: int = 30) -> dict:
 
 # ── LLM enrichment ──
 
-_ENRICH_PROMPT = """Analyze this web content and provide a structured summary.
+_ENRICH_PROMPT: str = """Analyze this web content and provide a structured summary.
 
 Title: {title}
 URL: {url}
@@ -174,7 +190,7 @@ Respond in strict JSON (no other text):
 }}"""
 
 
-def call_llm(prompt: str) -> dict | None:
+def call_llm(prompt: str) -> LLMResult | None:
     """Call an OpenAI-compatible LLM API. Returns parsed JSON or None."""
     body = {
         "model": LLM_MODEL,
@@ -203,7 +219,7 @@ def call_llm(prompt: str) -> dict | None:
         return None
 
 
-def enrich_item(item_id: int, url: str, domain: str, conn) -> str:
+def enrich_item(item_id: int, url: str, domain: str, conn: sqlite3.Connection) -> str:
     """Enrich a single item. Returns status string."""
     if domain in SKIP_DOMAINS:
         conn.execute(
@@ -249,7 +265,7 @@ def enrich_item(item_id: int, url: str, domain: str, conn) -> str:
     return "fetched"
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Enrich pending items with full text and LLM summaries")
     parser.add_argument("--limit", type=int, default=0, help="Max items to process (0 = all)")
     args = parser.parse_args()
@@ -261,7 +277,7 @@ def main():
         "SELECT id, url, domain FROM items "
         "WHERE fetch_status = 'pending' ORDER BY added_at"
     )
-    query_params = []
+    query_params: list[int] = []
     if args.limit > 0:
         query += " LIMIT ?"
         query_params.append(args.limit)
