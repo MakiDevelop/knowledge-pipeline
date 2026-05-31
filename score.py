@@ -15,8 +15,8 @@ Usage:
 
 import argparse
 import json
+import logging
 import re
-import sys
 import time
 from datetime import datetime, timezone
 
@@ -171,7 +171,7 @@ def _call_llm(prompt: str) -> dict | None:
         text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
         return json.loads(text)
     except Exception as e:
-        print(f"    LLM error: {e}", file=sys.stderr)
+        logging.getLogger(__name__).warning("LLM scoring failed: %s", e)
         return None
 
 
