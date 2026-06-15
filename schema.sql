@@ -35,7 +35,9 @@ CREATE TABLE IF NOT EXISTS items (
     embedded_at         TEXT,
     -- Metadata
     url_hash            TEXT,       -- SHA256 of URL for dedup
-    tags                TEXT        -- JSON array
+    tags                TEXT,       -- JSON array
+    -- ACA Governance (Layer 2: Trust)
+    source_tier         TEXT    DEFAULT 'raw_source'  -- raw_source / llm_derived / human_confirmed
 );
 
 CREATE INDEX IF NOT EXISTS idx_items_domain ON items(domain);

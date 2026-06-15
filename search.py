@@ -51,8 +51,11 @@ def load_embeddings(
         if filters.get("min_score"):
             where.append("signal_score >= ?")
             params.append(filters["min_score"])
+        if filters.get("source_tier"):
+            where.append("COALESCE(source_tier, 'raw_source') = ?")
+            params.append(filters["source_tier"])
 
-    query = f"SELECT id, url, domain, title, core_insight, signal_score, route_to, embedding, sparse_weights FROM items WHERE {' AND '.join(where)}"
+    query = f"SELECT id, url, domain, title, core_insight, signal_score, route_to, source_tier, embedding, sparse_weights FROM items WHERE {' AND '.join(where)}"
     rows = conn.execute(query, params).fetchall()
 
     if not rows:

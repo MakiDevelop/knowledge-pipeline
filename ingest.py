@@ -57,7 +57,7 @@ def extract_urls(text: str) -> list[str]:
     return result
 
 
-def ingest_urls(urls: list[str], source: str = "cli") -> dict[str, int]:
+def ingest_urls(urls: list[str], source: str = "cli", source_tier: str = "raw_source") -> dict[str, int]:
     """Insert URLs into the database. Returns stats."""
     init_db()
     conn = get_db_connection()
@@ -71,9 +71,9 @@ def ingest_urls(urls: list[str], source: str = "cli") -> dict[str, int]:
             url_hash = hashlib.sha256(url.encode()).hexdigest()
             try:
                 conn.execute(
-                    "INSERT INTO items (url, domain, source, added_at, url_hash) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (url, domain, source, now, url_hash),
+                    "INSERT INTO items (url, domain, source, added_at, url_hash, source_tier) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (url, domain, source, now, url_hash, source_tier),
                 )
                 added += 1
             except sqlite3.IntegrityError:
