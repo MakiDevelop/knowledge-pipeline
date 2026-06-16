@@ -94,6 +94,15 @@ ROUTE_ACTION: str = "action"        # Directly actionable
 ROUTE_VALIDATOR: str = "validator"  # Needs fact-checking
 ROUTE_ARCHIVE: str = "archive"      # Low priority, file away
 
+# ACA Layer 4: route authority — which capabilities are needed to handle each route
+ROUTE_AUTHORITY: dict[str, dict[str, str | list[str]]] = {
+    ROUTE_VALIDATOR: {"min_tier": "human_confirmed", "capabilities": ["read_memory", "tier_upgrade"]},
+    ROUTE_RESEARCH:  {"min_tier": "raw_source",      "capabilities": ["read_memory", "propose_decision"]},
+    ROUTE_WRITER:    {"min_tier": "raw_source",      "capabilities": ["read_memory", "write_memory"]},
+    ROUTE_ACTION:    {"min_tier": "raw_source",      "capabilities": ["execute_tool"]},
+    ROUTE_ARCHIVE:   {"min_tier": "raw_source",      "capabilities": ["read_memory"]},
+}
+
 
 def compute_route(scores: ScoreDict) -> str:
     """Determine where this item should go based on scores."""

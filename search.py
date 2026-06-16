@@ -22,6 +22,8 @@ import sys
 from typing import Any
 
 import numpy as np
+
+from score import ROUTE_AUTHORITY
 from FlagEmbedding import BGEM3FlagModel
 
 from config import EMBED_DIM, EMBED_MODEL, get_db_connection, init_db
@@ -115,6 +117,8 @@ def hybrid_search(
         if final_scores[idx] <= 0:
             continue
         row = rows[idx]
+        route = row["route_to"]
+        authority = ROUTE_AUTHORITY.get(route or "", {})
         results.append({
             "id": row["id"],
             "url": row["url"],
@@ -122,7 +126,9 @@ def hybrid_search(
             "title": row["title"],
             "core_insight": row["core_insight"],
             "signal_score": row["signal_score"],
-            "route_to": row["route_to"],
+            "route_to": route,
+            "source_tier": row["source_tier"] if "source_tier" in row.keys() else None,
+            "route_authority": authority if authority else None,
             "similarity": round(float(final_scores[idx]), 4),
         })
 
@@ -206,7 +212,13 @@ def main() -> None:
         for i, r in enumerate(results, 1):
             score_str = f"signal={r['signal_score']}" if r["signal_score"] else ""
             rerank_str = f" rerank={r['rerank_score']}" if "rerank_score" in r else ""
-            print(f"  {i}. [{r['similarity']:.3f}{rerank_str}] {score_str} [{r['route_to'] or '?'}]")
+            route = r['route_to'] or '?'
+            authority = ROUTE_AUTHORITY.get(route, {})
+            caps = ",".join(authority.get("capabilities", []))
+            tier_str = f" tier={r.get('source_tier', 'raw_source')}" if r.get('source_tier') else ""
+            print(f"  {i}. [{r['similarity']:.3f}{rerank_str}] {score_str} [{route}]{tier_str}")
+            if caps:
+                print(f"     requires: {caps}")
             print(f"     {r['title'] or r['url']}")
             if r["core_insight"]:
                 print(f"     > {r['core_insight'][:100]}")
