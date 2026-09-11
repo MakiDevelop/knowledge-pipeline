@@ -1,5 +1,7 @@
 # knowledge-pipeline
 
+> **狀態（2026-09-11）：** 這是從**私人**個人系統 `mk-brain` 蒸餾出的公開摘錄。日常開發在 mk-brain，**不會**與本倉 lockstep。不要預期 RSS、Ghost、dashboard 等 mk-brain 功能會回到這裡。
+
 **自動分揀你的知識。評分、路由、搜尋——零框架。**
 
 大多數書籤管理工具都是墳場。你存了 500 個 URL,然後再也沒有打開過。
@@ -203,16 +205,11 @@ FlagEmbedding
 
 請見 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-特別歡迎:
-- 新的評分維度或路由策略
-- 其他 LLM 後端或 prompt
-- 從新來源匯入(RSS、Slack、Discord、Obsidian...)
-- 搜尋品質改善
-- 文件和範例
+本摘錄不與 `mk-brain` lockstep。有幫助的貢獻是這個 snapshot 的 bugfix、測試與文件 — 不是去追私人主線的功能。
 
 ## 起源
 
-這個專案從 [mk-brain](https://github.com/MakiDevelop/mk-brain) 提煉而來,那是一個運行中的個人知識基礎設施,跨 6 層管理 1,600+ 則項目。評分和路由系統經過數個月每日使用的精煉。
+這個專案是從**私人**個人知識基礎設施 **mk-brain** 蒸餾出的公開摘錄。評分與路由的想法在那邊經過日常使用打磨。mk-brain 仍是活線；本倉不是 mirror，也不 lockstep 更新。
 
 ## License
 

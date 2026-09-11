@@ -1,5 +1,7 @@
 # knowledge-pipeline
 
+> **Status (2026-09-11):** Public extract distilled from a **private** personal system (`mk-brain`). Daily development happens there and is **not** kept in lockstep with this repo. Do not expect RSS, Ghost, dashboard, or other mk-brain features to land here.
+
 > Stop feeding your RAG garbage.
 
 ![CI](https://github.com/MakiDevelop/knowledge-pipeline/actions/workflows/ci.yml/badge.svg)
@@ -203,16 +205,11 @@ That's it. Two packages beyond stdlib.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-We especially welcome:
-- New scoring dimensions or routing strategies
-- Alternative LLM backends or prompts
-- Ingestion from new sources (RSS, Slack, Discord, Obsidian...)
-- Search quality improvements
-- Documentation and examples
+This extract is not in lockstep with `mk-brain`. Useful contributions are bugfixes, tests, and docs for **this** snapshot — not feature parity with the private system.
 
 ## Origin
 
-This project is distilled from [mk-brain](https://github.com/makifordevelop/mk-brain), a personal knowledge infrastructure running 1,600+ items across 6 layers. The scoring and routing system has been refined through months of daily use.
+This project is a public extract distilled from **mk-brain**, a private personal knowledge infrastructure. The scoring and routing ideas were refined there through daily use. mk-brain remains the live line; this repository is not a mirror and is not updated in lockstep.
 
 ## License
 

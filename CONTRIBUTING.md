@@ -12,7 +12,7 @@ Thanks for your interest! This project values simplicity and practicality over c
 ## Getting started
 
 ```bash
-git clone https://github.com/makifordevelop/knowledge-pipeline.git
+git clone https://github.com/MakiDevelop/knowledge-pipeline.git
 cd knowledge-pipeline
 pip install -r requirements.txt
 cp .env.example .env
@@ -21,29 +21,23 @@ cp .env.example .env
 pytest tests/ -v
 ```
 
+## Status
+
+This repo is a **public extract** of a private personal system (`mk-brain`).  
+Daily development happens in mk-brain and is **not** merged back here.
+
+Please do **not** open PRs that add mk-brain-only features (RSS ingestion, Ghost publishing, dashboard, Docker one-command stacks, extra ingest sources) in order to "catch up." Those belong in the private line, if anywhere.
+
 ## What we'd love help with
 
-### Good first issues
+Useful contributions for **this snapshot**:
 
-- **Add RSS ingestion** — Extend `ingest.py` to accept RSS feed URLs and auto-extract article links
-- **Add Obsidian ingestion** — Read URLs from Obsidian vault markdown files
-- **Improve HTML extraction** — The `_HTMLTextExtractor` in `enrich.py` is basic; handle more edge cases
-- **Add `--output csv` to search.py** — Export search results as CSV
-- **Add scoring dimension visualization** — A simple radar chart showing the 8 dimensions
+- Bugfixes and failing-test reproductions
+- Documentation and examples that match the code that is actually here
+- HTML extraction edge cases in `enrich.py`
+- Search quality improvements that stay inside the current layers
 
-### Medium
-
-- **Alternative embedding models** — Support for OpenAI embeddings, Cohere, etc.
-- **Batch scoring with async** — Score multiple items concurrently
-- **Web UI for search** — Simple HTML page served alongside the API
-- **Docker compose** — One-command setup with Ollama + pipeline
-
-### Advanced
-
-- **Custom scoring dimensions** — Let users define their own scoring criteria via config
-- **Knowledge consolidation** — Cross-topic synthesis (grouping related items and generating insights)
-- **Webhook ingestion** — HTTP endpoint to receive URLs from browsers, Slack, Discord
-- **MCP server implementation** — Full MCP protocol support for Claude Desktop
+Not in scope: feature parity with mk-brain, new ingest sources, Compose/one-command product packaging.
 
 ## Code style
 
